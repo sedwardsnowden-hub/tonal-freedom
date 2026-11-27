@@ -36,6 +36,7 @@ After this process, the hardware is yours again. Use it with a third-party app, 
 ### Equipment
 
 1. **A Debian-based Linux computer** — Raspberry Pi 4B/5 with Raspberry Pi OS, Ubuntu, or similar
+   - **Raspberry Pi 5:** switch it to the 4 KB-page kernel before patching (see [Troubleshooting](#troubleshooting)).
 2. **[mtkclient](https://github.com/bkerler/mtkclient)** — fully installed and configured
 3. **Extended Torx security bit set** — you need a **#4 Torx bit** for the security screws (e.g., [LABEAR 10-Piece Set](https://www.amazon.com/dp/B0C5R5MGDF))
 4. **A drill**
@@ -81,7 +82,7 @@ This is your only safety net. Skip this and you are on your own.
    ```bash
    sudo bash patcher.sh
    ```
-4. If successful, you now have a `boot.patched.img` file.
+4. If successful, you now have a `boot.patched.img` file. (If it fails with `Segmentation fault ./magiskboot unpack`, see [Troubleshooting](#troubleshooting).)
 5. **Verify** that your virgin backups of every partition are intact and accessible.
 6. Flash `boot.patched.img` using mtkclient in place of the original boot partition.
 
@@ -96,6 +97,30 @@ This is your only safety net. Skip this and you are on your own.
 3. From here, install any Android apps you want — offline workout trackers, custom launchers, whatever you need.
 
 > **Tip:** The patch sets SELinux to permissive (`setenforce 0`). Change it back once you are done making modifications.
+
+---
+
+## Troubleshooting
+
+### Patching on a Raspberry Pi 5: `Segmentation fault ./magiskboot unpack`
+The Pi 5's default kernel uses 16 KB memory pages, and Magisk's Android binaries expect 4 KB pages, so `magiskboot` crashes and no `new-boot.img` is produced. Switch the Pi to its 4 KB-page kernel, then run the patcher again:
+```bash
+echo 'kernel=kernel8.img' | sudo tee -a /boot/firmware/config.txt   # make sure it lands under [all]
+sudo reboot
+getconf PAGESIZE   # should print 4096
+```
+Remove the line (and reboot) to go back to the default kernel.
+
+### After flashing, the Tonal still boots into the normal Tonal app
+On at least one Tonal 1 (Android 6.0, user build), the patch's `bypass_kiosk` service never starts, so there is no kiosk bypass, no TextLauncher and no automatic ADB key. The boot partition *is* patched and Magisk *is* running; you can finish by hand:
+
+1. **Get ADB access.** The patch still switches ADB on. Power cycle once more: on the second boot Android shows **"Allow USB debugging?"** for your computer's key. Accept it (tick "Always allow").
+2. **Confirm the cause (optional):** `adb shell dmesg | grep bypass_kiosk` shows `cannot setexeccon('u:r:su:s0'): Invalid argument`. Production Android 6 builds have no `su` SELinux domain, so init refuses to start the service.
+3. **Install and open the Magisk app:** `adb install Magisk-v27.0.apk`, then open it on the Tonal. Accept its "additional setup" (it reboots).
+4. **Grant root to the shell:** run `adb shell su -c id` and grant the Superuser prompt on the Tonal. If the prompt ignores your taps, the Tonal app's overlay is triggering Magisk's tapjacking protection: turn off *Settings → Superuser → Tapjacking protection*, grant, then turn it back on. If `su` is refused instantly, an earlier timed-out prompt saved a *deny*: open Magisk's **Superuser** tab and switch **Shell** on.
+5. `adb shell su -c id` should now print `uid=0(root)`.
+
+Also seen on that unit: SELinux stays **enforcing**; `ro.adb.secure` stays `1` (ADB keeps requiring authorization); and `com.tonal.tonallauncher` recreates its device-owner files shortly after boot.
 
 ---
 

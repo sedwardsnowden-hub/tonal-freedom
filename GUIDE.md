@@ -88,6 +88,7 @@ bash patcher.sh
 
 
 7. Once flashing is complete, exit mtkclient and **power cycle** (turn off, then on) your device. It should boot up normally and your device is now unlocked, giving you ADB access.
+> 💡 **Raspberry Pi 5 users, or still seeing the Tonal app after flashing?** See [Troubleshooting in the README](README.md#troubleshooting).
 
 ---
 
